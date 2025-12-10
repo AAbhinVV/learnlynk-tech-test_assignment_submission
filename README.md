@@ -146,6 +146,22 @@ Add a section titled:
 
 ```
 ## Stripe Answer
+
+1. When a student chooses to pay the application fee, I first create a payment_requests record with application_id,     amount, currency, and status = 'pending'.
+
+2. After saving that row, I call Stripe Checkout from a secure backend (such as a Supabase Edge Function) and attach the payment_requests.id to the session metadata.
+
+3. Stripe returns a Checkout URL, which I store back into the payment_requests row so the UI can redirect the user.
+
+4. I also store the session_id and payment_intent_id, so later I can match Stripe webhooks to the database record.
+
+5. A webhook endpoint listens for Stripe events, specifically checkout.session.completed to confirm successful payment.
+
+6. When that webhook fires, I verify the Stripe signature, look up the matching payment_requests row using the session ID, and update its status to paid.
+
+7. Finally, I update the related applications entry (for example status = 'paid' or fee_paid = true) so the student is marked as fully registered and can continue in the flow.
+
+8. This ensures secure payment handling, reliable webhook-based confirmation, and a clean link between Stripe transactions and application records.
 ```
 
 Write **8–12 lines** describing how you would implement a Stripe Checkout flow for an application fee, including:
