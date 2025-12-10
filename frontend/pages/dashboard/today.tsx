@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../../../lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 
 type Task = {
   id: string;
@@ -13,79 +13,102 @@ export default function TodayDashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatingid, setUpdatingid] = useState<string | null>(null);
+
+  const getTodayRange = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
+    return { startIso: start.toISOString(), endIso: end.toISOString() };
+  };
 
   async function fetchTasks() {
     setLoading(true);
     setError(null);
 
-    try {
-      // TODO:
-      // - Query tasks that are due today and not completed
-      // - Use supabase.from("tasks").select(...)
-      // - You can do date filtering in SQL or client-side
+    const{ startIso, endIso } = getTodayRange();
 
-      // Example:
-      // const { data, error } = await supabase
-      //   .from("tasks")
-      //   .select("*")
-      //   .eq("status", "open");
+    const {data, error} = await supabase
+      .from("tasks")
+      .select("id, applcation_id, type, status, due_at")
+      .gte("due_at", startIso)
+      .lt("due_at", endIso)
+      .neq("status", "completed")
+      .order("due_at", { ascending: true });
 
-      setTasks([]);
-    } catch (err: any) {
-      console.error(err);
-      setError("Failed to load tasks");
-    } finally {
+      if (error) {
+        console.error("Error fetching tasks", error);
+        setError("Failed to load tasks");
+        setTasks([]);
+      }else{
+        setTasks(data ?? []);
+      }
+
       setLoading(false);
-    }
   }
 
-  async function markComplete(id: string) {
-    try {
-      // TODO:
-      // - Update task.status to 'completed'
-      // - Re-fetch tasks or update state optimistically
-    } catch (err: any) {
-      console.error(err);
+  const handleMarkComplete = async (taskId: string) => { 
+    setUpdatingid(taskId);
+
+    const { error } = await supabase
+      .from("tasks")
+      .update({ status: "completed" })
+      .eq("id", taskId);
+
+    if(error){
+      console.error("Error updating task", error);
       alert("Failed to update task");
+    }else{
+      setTasks((prevTasks) => prevTasks.filter((t) => t.id !== taskId));
     }
+
+    setUpdatingid(null);
+
   }
 
   useEffect(() => {
-    fetchTasks();
-  }, []);
+      fetchTasks();
+    }, []);
+  
+
+
+  
 
   if (loading) return <div>Loading tasks...</div>;
   if (error) return <div style={{ color: "red" }}>{error}</div>;
 
-  return (
-    <main style={{ padding: "1.5rem" }}>
-      <h1>Today&apos;s Tasks</h1>
-      {tasks.length === 0 && <p>No tasks due today 🎉</p>}
+   return (
+    <main style={{ padding: "2rem" }}>
+      <h1>Tasks Due Today</h1>
+
+      {tasks.length === 0 && <p>No tasks due today.</p>}
 
       {tasks.length > 0 && (
-        <table>
+        <table style={{ width: "100%", marginTop: "1rem", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th>Type</th>
-              <th>Application</th>
-              <th>Due At</th>
-              <th>Status</th>
-              <th>Action</th>
+              <th style={th}>Type</th>
+              <th style={th}>Application ID</th>
+              <th style={th}>Due At</th>
+              <th style={th}>Status</th>
+              <th style={th}>Actions</th>
             </tr>
           </thead>
+
           <tbody>
-            {tasks.map((t) => (
-              <tr key={t.id}>
-                <td>{t.type}</td>
-                <td>{t.application_id}</td>
-                <td>{new Date(t.due_at).toLocaleString()}</td>
-                <td>{t.status}</td>
-                <td>
-                  {t.status !== "completed" && (
-                    <button onClick={() => markComplete(t.id)}>
-                      Mark Complete
-                    </button>
-                  )}
+            {tasks.map(task => (
+              <tr key={task.id}>
+                <td style={td}>{task.type}</td>
+                <td style={td}>{task.application_id}</td>
+                <td style={td}>{new Date(task.due_at).toLocaleString()}</td>
+                <td style={td}>{task.status}</td>
+                <td style={td}>
+                  <button
+                    disabled={updatingid === task.id}
+                    onClick={() => handleMarkComplete(task.id)}
+                  >
+                    {updatingid === task.id ? "Updating..." : "Mark Complete"}
+                  </button>
                 </td>
               </tr>
             ))}
@@ -95,3 +118,14 @@ export default function TodayDashboard() {
     </main>
   );
 }
+
+// table styles
+const th: React.CSSProperties = {
+  textAlign: "left",
+  padding: "0.5rem",
+  borderBottom: "2px solid #ccc",
+};
+const td: React.CSSProperties = {
+  padding: "0.5rem",
+  borderBottom: "1px solid #eee",
+};
