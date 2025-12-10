@@ -1,12 +1,17 @@
 -- LearnLynk Tech Test - Task 2: RLS Policies on leads
 
 alter table public.leads enable row level security;
+alter table public.leads force row level security;
 
 -- Example helper: assume JWT has tenant_id, user_id, role.
 -- You can use: current_setting('request.jwt.claims', true)::jsonb
 
 -- TODO: write a policy so:
 -- - counselors see leads where they are owner_id OR in one of their teams
+create policy "Leads visible to counselors" 
+on leads for select
+
+
 -- - admins can see all leads of their tenant
 
 
